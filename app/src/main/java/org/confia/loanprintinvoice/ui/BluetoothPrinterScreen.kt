@@ -1,6 +1,8 @@
 package org.confia.loanprintinvoice.ui
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.bluetooth.BluetoothDevice
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,20 +17,36 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.confia.loanprintinvoice.bluetooth.loadPairedDevices
 import org.confia.loanprintinvoice.bluetooth.requestPermissions
+import org.confia.loanprintinvoice.models.PaymentDetailsResponseDto
+import org.confia.loanprintinvoice.network.RetrofitInstance
 import org.confia.loanprintinvoice.printer.connectToPrinter
 import org.confia.loanprintinvoice.printer.disconnectPrinter
-import org.confia.loanprintinvoice.printer.getPrintPreview
-import org.confia.loanprintinvoice.printer.printReceipt
+import org.confia.loanprintinvoice.printer.getPaymentReceiptPreview
+import org.confia.loanprintinvoice.printer.printPaymentReceipt
+import java.util.UUID
 
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+
+@SuppressLint("ContextCastToActivity")
 @Composable
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-fun BluetoothPrinterScreen() {
+fun BluetoothPrinterScreen(paymentId: UUID?, token: String?,returnHost: String?) {
+    LaunchedEffect(token) {
+        RetrofitInstance.setAuthToken(token)
+    }
     var pairedDevices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
     var filteredDevices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isConnected by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var isPrinting by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val activity = (LocalContext.current as? Activity)
+    var paymentDetails by remember { mutableStateOf<PaymentDetailsResponseDto?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -40,7 +58,6 @@ fun BluetoothPrinterScreen() {
                 filteredDevices = devices.filter { it.name == "MPT-II" }
 
                 if (filteredDevices.size == 1) {
-                    // Conexión automática
                     connectToPrinter(filteredDevices.first().address) { error ->
                         errorMessage = error
                         isConnected = error == null
@@ -54,6 +71,19 @@ fun BluetoothPrinterScreen() {
 
     LaunchedEffect(Unit) {
         requestPermissions(permissionLauncher)
+
+        if (paymentId != null) {
+            coroutineScope.launch {
+                val response = RetrofitInstance.api.getPaymentDetail(paymentId)
+                if (response.isSuccessful) {
+                    paymentDetails = response.body()
+                } else {
+                    errorMessage = "Error al cargar detalles del pago" + response.message()
+                }
+            }
+        } else {
+            errorMessage = "No se proporcionó un paymentId válido"
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -80,40 +110,40 @@ fun BluetoothPrinterScreen() {
                     }
                 }
             }
-
-            // Si ya hay uno conectado automáticamente, no mostramos nada aquí
         }
 
         if (isConnected) {
             Spacer(Modifier.height(16.dp))
 
             Text("Vista previa de impresión:", style = MaterialTheme.typography.titleMedium)
-            Text(
-                getPrintPreview(),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
 
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        isPrinting = true
-                        printReceipt { errorMessage = it }
-                        isPrinting = false
-                    }
-                },
-                enabled = !isPrinting
-            ) {
-                Text(if (isPrinting) "Imprimiendo..." else "Imprimir texto")
+
+            paymentDetails?.let { payment ->
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            isPrinting = true
+                            printPaymentReceipt(payment) { errorMessage = it }
+                            isPrinting = false
+                        }
+                    },
+                    enabled = !isPrinting
+                ) {
+                    Text(if (isPrinting) "Imprimiendo..." else "Imprimir Recibo")
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Text("Vista previa del recibo:")
+                Text(getPaymentReceiptPreview(payment))
             }
 
             Spacer(Modifier.height(8.dp))
 
             Button(onClick = {
-                disconnectPrinter()
-                isConnected = false
+                activity?.finish()
             }) {
-                Text("Desconectar")
+                Text("Regresar a la aplicación")
             }
         }
 

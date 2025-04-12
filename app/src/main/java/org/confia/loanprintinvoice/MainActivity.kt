@@ -2,6 +2,7 @@ package org.confia.loanprintinvoice
 
 import android.Manifest
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,17 +16,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import org.confia.loanprintinvoice.ui.BluetoothPrinterScreen
 import org.confia.loanprintinvoice.ui.theme.LoanPrintInvoiceTheme
+import org.json.JSONObject
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+
+        val data = intent?.data
+        var token: String? = null
+        var paymentId: UUID? = null
+        var returnHost: String? = null
+
+        data?.getQueryParameter("json")?.let { jsonEncoded ->
+            try {
+                val json = JSONObject(jsonEncoded)
+                token = json.optString("token", null)
+                paymentId = json.optString("id")?.let { UUID.fromString(it) }
+                returnHost = json.optString("host", null)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
         setContent {
             LoanPrintInvoiceTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
-                        name = "Android",
+                        paymentId = paymentId, token = token, returnHost = returnHost,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -36,15 +56,7 @@ class MainActivity : ComponentActivity() {
 
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    BluetoothPrinterScreen()
+fun Greeting(paymentId: UUID?, token: String?,returnHost: String?, modifier: Modifier = Modifier) {
+    BluetoothPrinterScreen(  paymentId = paymentId, token = token,returnHost = returnHost,)
 }
 
-@Preview(showBackground = true)
-@Composable
-@RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-fun GreetingPreview() {
-    LoanPrintInvoiceTheme {
-        Greeting("Android")
-    }
-}

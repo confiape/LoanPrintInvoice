@@ -1,64 +1,117 @@
 package org.confia.loanprintinvoice.printer
 
-import org.confia.loanprintinvoice.utils.getCurrentDate
+import android.graphics.Bitmap
+import org.confia.loanprintinvoice.models.PaymentDetailsResponseDto
+import org.confia.loanprintinvoice.utils.formatOffsetDateTime
+import java.io.ByteArrayOutputStream
+import java.time.OffsetDateTime
+import kotlin.experimental.or
 
-fun printReceipt(onError: (String) -> Unit) {
+fun printPaymentReceipt(payment: PaymentDetailsResponseDto, onError: (String) -> Unit) {
     try {
-        val commands = mutableListOf<ByteArray>()
+        val qrJson = """
+{
+  "name": "${payment.name}",
+  "dni": "${payment.dni}",
+  "amount": ${payment.paymentAmount},
+  "date": "${payment.paymentDate}"
+}
+""".trimIndent()
 
-        commands += byteArrayOf(0x1B, 0x40) // Reset
-        commands += byteArrayOf(0x1B, 0x61, 0x01) // Center
-        commands += "Mi Negocio\nDirección: Calle Principal 123\nTeléfono: +123 456 789\nFecha: ${getCurrentDate()}\n\n".toByteArray()
+        val lines = getPaymentReceiptPreview(payment).split("\n")
+        outputStream?.write(byteArrayOf(0x1B, 0x40)) // Reset
 
-        commands += byteArrayOf(0x1B, 0x61, 0x00) // Left
-        commands += """
-            --------------------------------
-            Producto          Precio   Cantidad
-            --------------------------------
-            Café americano    $5.00      2
-            Té verde          $4.50      1
-            Pastel de chocolate$8.00      1
-
-        """.trimIndent().toByteArray()
-
-        commands += byteArrayOf(0x1B, 0x61, 0x02) // Right
-        commands += """
-            Subtotal:         $22.50
-            Impuestos:        $2.25
-            Total:            $24.75
-
-        """.trimIndent().toByteArray()
-
-        commands += byteArrayOf(0x1B, 0x61, 0x01) // Center again
-        commands += "¡Gracias por su compra!\nVuelva pronto.\n".toByteArray()
-        commands += byteArrayOf(0x1D, 0x56, 0x00) // Cut paper
-
-        commands.forEach { outputStream?.write(it) }
-        outputStream?.write(0x0A)
+        for (line in lines) {
+            outputStream?.write(line.toByteArray())
+            outputStream?.write(byteArrayOf(0x0A)) // salto de línea
+        }
+        outputStream?.write(escPosQrCode(qrJson))
+        outputStream?.write(byteArrayOf(0x0A))
     } catch (e: Exception) {
-        onError("Error al imprimir: ${e.message}")
+        onError("Error al imprimir recibo: ${e.message}")
     }
 }
 
-fun getPrintPreview(): String {
+fun getPaymentReceiptPreview(payment: PaymentDetailsResponseDto): String {
     return buildString {
-        appendLine("           Mi Negocio")
-        appendLine("Dirección: Calle Principal 123")
-        appendLine("Teléfono: +123 456 789")
-        appendLine("Fecha: ${org.confia.loanprintinvoice.utils.getCurrentDate()}")
-        appendLine()
+        appendLine("         RECIBO DE PAGO")
+        appendLine("Fecha: ${formatOffsetDateTime(payment.paymentDate)}")
+        appendLine(formatReceiptNumber(payment.paymentNumber, payment.paymentDate))
         appendLine("--------------------------------")
-        appendLine("Producto          Precio   Cantidad")
+        appendLine("Nombre          : ${payment.name}")
+        appendLine("DNI             : ${payment.dni}")
         appendLine("--------------------------------")
-        appendLine("Café americano    $5.00      2")
-        appendLine("Té verde          $4.50      1")
-        appendLine("Pastel de chocolate$8.00     1")
-        appendLine()
-        appendLine("                     Subtotal: $22.50")
-        appendLine("                    Impuestos: $2.25")
-        appendLine("                        Total: $24.75")
-        appendLine()
-        appendLine("       ¡Gracias por su compra!")
-        appendLine("           Vuelva pronto.")
+        appendLine("Monto Prestamo  : $${payment.loanAmount}")
+        appendLine("Monto Pagado    : $${payment.paymentAmount}")
+        appendLine("--------------------------------")
+        appendLine("Gracias por su pago.")
     }
+}
+
+fun formatReceiptNumber(paymentNumber: Int, date: OffsetDateTime): String {
+    return "No Recibo: %06d-%d".format(paymentNumber, date.year)
+}
+
+fun bitmapToEscPos(bitmap: Bitmap): ByteArray {
+    val stream = ByteArrayOutputStream()
+    val width = bitmap.width
+    val height = bitmap.height
+    val bytes = mutableListOf<Byte>()
+
+    for (y in 0 until height step 24) {
+        bytes.add(0x1B)
+        bytes.add(0x2A)
+        bytes.add(33) // mode: 24-dot double-density
+        bytes.add((width % 256).toByte())
+        bytes.add((width / 256).toByte())
+
+        for (x in 0 until width) {
+            for (k in 0 until 3) {
+                var slice: Byte = 0
+                for (b in 0 until 8) {
+                    val yIndex = y + k * 8 + b
+                    if (yIndex >= height) continue
+                    val pixel = bitmap.getPixel(x, yIndex)
+                    val r = (pixel shr 16) and 0xff
+                    val g = (pixel shr 8) and 0xff
+                    val bColor = pixel and 0xff
+                    val luminance = 0.299 * r + 0.587 * g + 0.114 * bColor
+                    if (luminance < 127) {
+                        slice = (slice or ((1 shl (7 - b)).toByte())).toByte()
+                    }
+                }
+                bytes.add(slice)
+            }
+        }
+        bytes.add(0x0A) // newline
+    }
+
+    return bytes.toByteArray()
+}
+
+fun escPosQrCode(data: String): ByteArray {
+    val charset = Charsets.UTF_8
+
+    val modelCommand = byteArrayOf(0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00)
+    val sizeCommand = byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06) // Tamaño QR 1-16
+    val errorCommand = byteArrayOf(
+        0x1D,
+        0x28,
+        0x6B,
+        0x03,
+        0x00,
+        0x31,
+        0x45,
+        0x30
+    ) // Nivel de corrección (48 = L, 49 = M, etc)
+
+    val dataBytes = data.toByteArray(charset)
+    val pL = (dataBytes.size + 3) % 256
+    val pH = (dataBytes.size + 3) / 256
+
+    val storeCommand =
+        byteArrayOf(0x1D, 0x28, 0x6B, pL.toByte(), pH.toByte(), 0x31, 0x50, 0x30) + dataBytes
+    val printCommand = byteArrayOf(0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30)
+
+    return modelCommand + sizeCommand + errorCommand + storeCommand + printCommand
 }
