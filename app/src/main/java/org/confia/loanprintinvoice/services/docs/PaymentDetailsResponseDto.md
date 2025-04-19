@@ -12,6 +12,7 @@
 | **paymentDate** | [**java.time.OffsetDateTime**](java.time.OffsetDateTime.md) |  |  |
 | **paymentNumber** | **kotlin.Int** |  |  |
 | **paymentSum** | **kotlin.Double** |  |  |
+| **url** | **kotlin.String** |  |  |
 
 
 

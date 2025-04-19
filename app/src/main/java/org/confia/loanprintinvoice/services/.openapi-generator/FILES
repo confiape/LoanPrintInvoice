@@ -1,4 +1,3 @@
-.openapi-generator-ignore
 README.md
 build.gradle
 docs/AuthenticationApi.md
@@ -9,6 +8,7 @@ docs/CompanyDto.md
 docs/CreateBorrower.md
 docs/CreateLoanDto.md
 docs/CreatePersonDto.md
+docs/DefaultApi.md
 docs/FileApi.md
 docs/LoanApi.md
 docs/LoanDto.md
@@ -44,6 +44,7 @@ settings.gradle
 src/main/kotlin/org/confia/loanprintinvoice/apis/AuthenticationApi.kt
 src/main/kotlin/org/confia/loanprintinvoice/apis/BorrowerApi.kt
 src/main/kotlin/org/confia/loanprintinvoice/apis/CompanyApi.kt
+src/main/kotlin/org/confia/loanprintinvoice/apis/DefaultApi.kt
 src/main/kotlin/org/confia/loanprintinvoice/apis/FileApi.kt
 src/main/kotlin/org/confia/loanprintinvoice/apis/LoanApi.kt
 src/main/kotlin/org/confia/loanprintinvoice/apis/PaymentApi.kt
@@ -88,6 +89,7 @@ src/main/kotlin/org/confia/loanprintinvoice/models/UserToRegister.kt
 src/test/kotlin/org/confia/loanprintinvoice/apis/AuthenticationApiTest.kt
 src/test/kotlin/org/confia/loanprintinvoice/apis/BorrowerApiTest.kt
 src/test/kotlin/org/confia/loanprintinvoice/apis/CompanyApiTest.kt
+src/test/kotlin/org/confia/loanprintinvoice/apis/DefaultApiTest.kt
 src/test/kotlin/org/confia/loanprintinvoice/apis/FileApiTest.kt
 src/test/kotlin/org/confia/loanprintinvoice/apis/LoanApiTest.kt
 src/test/kotlin/org/confia/loanprintinvoice/apis/PaymentApiTest.kt

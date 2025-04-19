@@ -60,6 +60,7 @@ All URIs are relative to *http://localhost*
 | *CompanyApi* | [**getAllCompanies**](docs/CompanyApi.md#getallcompanies) | **GET** api/Company/GetAllCompanies |  |
 | *CompanyApi* | [**getCompanyById**](docs/CompanyApi.md#getcompanybyid) | **GET** api/Company/GetCompanyById |  |
 | *CompanyApi* | [**updateCompany**](docs/CompanyApi.md#updatecompany) | **PUT** api/Company/UpdateCompany |  |
+| *DefaultApi* | [**redirectToOriginal**](docs/DefaultApi.md#redirecttooriginal) | **GET** r/{code} |  |
 | *FileApi* | [**upload**](docs/FileApi.md#upload) | **POST** api/File/Upload |  |
 | *LoanApi* | [**createLoan**](docs/LoanApi.md#createloan) | **POST** api/Loan/CreateLoan |  |
 | *PaymentApi* | [**getDetailed**](docs/PaymentApi.md#getdetailed) | **GET** api/Payment/GetDetailed/{id} |  |

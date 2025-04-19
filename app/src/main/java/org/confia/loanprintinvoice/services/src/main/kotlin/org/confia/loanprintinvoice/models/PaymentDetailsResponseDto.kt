@@ -29,6 +29,7 @@ import com.google.gson.annotations.SerializedName
  * @param paymentDate 
  * @param paymentNumber 
  * @param paymentSum 
+ * @param url 
  */
 
 
@@ -56,7 +57,10 @@ data class PaymentDetailsResponseDto (
     val paymentNumber: kotlin.Int,
 
     @SerializedName("paymentSum")
-    val paymentSum: kotlin.Double
+    val paymentSum: kotlin.Double,
+
+    @SerializedName("url")
+    val url: kotlin.String
 
 ) {
 
